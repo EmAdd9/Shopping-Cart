@@ -121,7 +121,7 @@
       </repository>
       <snapshotRepository>
         <id>maven-snapshots</id>
-        <!--CHANGE HERE by your team Nexus server --><url>http://52.66.98.156:8081/repository/maven-releases/</url>
+        <!--CHANGE HERE by your team Nexus server --><url>http://52.66.231.152:8081/repository/maven-snapshots/</url>
       </snapshotRepository>
     </distributionManagement>
 
