@@ -51,11 +51,33 @@ pipeline {
                 }
             }
         }
-
-
-
-
-
-    
+        stage('Docker Build & Tag') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: '230502ae-331b-4885-9d3f-d1b16e937b59', toolName: 'docker') {
+                        sh "docker build -t e-kart -f docker/Dockerfile ."
+                        sh "docker tag e-kart sudebdocker/ekart:dev"
+                    }
+                }
+            }
+        }
+        stage('Docker Push') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: '230502ae-331b-4885-9d3f-d1b16e937b59', toolName: 'docker') {
+                        sh "docker push sudebdocker/ekart:dev"
+                    }
+                }
+            }
+        }
+        stage('Deploy to Container') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: '230502ae-331b-4885-9d3f-d1b16e937b59', toolName: 'docker') {
+                        sh "docker run -d --name ekart-container -p 8070:8070 sudebdocker/ekart:dev"
+                    }
+                }
+            }
+        }
     }
 }
