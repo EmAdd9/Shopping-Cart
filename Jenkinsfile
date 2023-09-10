@@ -1,63 +1,86 @@
 pipeline {
     agent any
-    tools{
-        jdk  'jdk11'
-        maven  'maven3'
+    
+    tools {
+        jdk 'jdk11'
+        maven 'maven3'
     }
     
-    environment{
-        SCANNER_HOME= tool 'sonar-scanner'
+    environment {
+        SCANNER_HOME=tool 'sonar-scanner'
     }
-    
+
     stages {
         stage('Git Checkout') {
             steps {
-                git branch: 'main', changelog: false, credentialsId: '15fb69c3-3460-4d51-bd07-2b0545fa5151', poll: false, url: 'https://github.com/jaiswaladi246/Shopping-Cart.git'
+                git branch: 'feature1', url: 'https://github.com/EmAdd9/Shopping-Cart.git'
             }
         }
-        
-        stage('COMPILE') {
+        stage('Maven Compile') {
             steps {
-                sh "mvn clean compile -DskipTests=true"
+                sh "mvn compile"
             }
         }
-        
-        stage('OWASP Scan') {
+        stage('Sonarqube Analysis') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ ', odcInstallation: 'DP'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                 withSonarQubeEnv('sonar-server') {
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=EKART \
+                    -Dsonar.java.binaries=. \
+                    -Dsonar.projectKey=EKART '''
+                }
+            }    
+        }
+        stage('Trivy FS') {
+            steps {
+                sh "trivy fs ."
             }
         }
-        
-        stage('Sonarqube') {
+        stage('OWASP-FS-Scan') {
             steps {
-                withSonarQubeEnv('sonar-server'){
-                   sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Shopping-Cart \
-                   -Dsonar.java.binaries=. \
-                   -Dsonar.projectKey=Shopping-Cart '''
-               }
+               dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'owasp'
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
-        
-        stage('Build') {
+        stage('Package') {
             steps {
-                sh "mvn clean package -DskipTests=true"
+                sh "mvn package -DskipTests=true"
             }
         }
-        
-        stage('Docker Build & Push') {
+        stage('Deploy to Nexus') {
             steps {
-                script{
-                    withDockerRegistry(credentialsId: '2fe19d8a-3d12-4b82-ba20-9d22e6bf1672', toolName: 'docker') {
-                        
-                        sh "docker build -t shopping-cart -f docker/Dockerfile ."
-                        sh "docker tag  shopping-cart adijaiswal/shopping-cart:latest"
-                        sh "docker push adijaiswal/shopping-cart:latest"
+                withMaven(globalMavenSettingsConfig: 'maven-settings') {
+                   sh "mvn deploy -DskipTests=true"   
+                }
+            }
+        }
+        stage('Docker Build & Tag') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: '230502ae-331b-4885-9d3f-d1b16e937b59', toolName: 'docker') {
+                        sh "docker build -t e-kart -f docker/Dockerfile ."
+                        sh "docker tag e-kart sudebdocker/ekart:dev"
                     }
                 }
             }
         }
-        
+        stage('Docker Push') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: '230502ae-331b-4885-9d3f-d1b16e937b59', toolName: 'docker') {
+                        sh "docker push sudebdocker/ekart:dev"
+                    }
+                }
+            }
+        }
+        stage('Deploy to Container') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: '230502ae-331b-4885-9d3f-d1b16e937b59', toolName: 'docker') {
+                        sh "docker run -d --name ekart-container -p 8070:8070 sudebdocker/ekart:dev"
+                    }
+                }
+            }
+        }
         
     }
 }
