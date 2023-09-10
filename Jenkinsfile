@@ -39,6 +39,19 @@ pipeline {
                     dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
+        stage('Package') {
+            steps {
+                sh "mvn package -DskipTests=true"
+            }
+        }
+        stage('Deploy to Nexus') {
+            steps {
+                withMaven(globalMavenSettingsConfig: 'maven-settings') {
+                   sh "mvn deploy -DskipTests=true"   
+                }
+            }
+        }
+
 
 
 
